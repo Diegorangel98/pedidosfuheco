@@ -9,6 +9,9 @@ let sedesN;
 let areasN;
 let dependenciasN;
 let sedesC;
+let areasB;
+let dependenciasB;
+let sedesB;
 let areasC;
 let dependenciasC;
 let btnModalAgregarProducto;
@@ -17,10 +20,12 @@ let btnAgregarProducto;
 let btnEditarProducto;
 let btnBuscarDescripcionP;
 let btnBuscarReferenciaP;
+let btnBuscarSolicitud;
 let modalAgregarProducto;
 let modalEditarProducto;
 let modalNuevaSolicitud;
 let modalBuscarProductoN;
+let modalBuscarSolicitudN;
 let addReferencia;
 let addDescripcion;
 let editReferencia;
@@ -47,9 +52,14 @@ let divSalidas;
 let inputBuscarProducto;
 let editIdProducto;
 let btnBuscarProductoN;
+let btnBuscarProductoDependencia;
 let btnAddItemCarrito;
+let btnModalBuscarSolicitudN;
+let btnAgregarProductoDependencia;
 let buscarProductoN;
 let breferencia;
+let breferenciaDependencia;
+let bdescripcionDependencia;
 let bdescripcion;
 let tbodyBuscarProductoN;
 let detalleTempProductoN;
@@ -62,13 +72,48 @@ var pedido = new Array();
 pedido[0]= new Array ('id','DESCRIPCION DEL PRODUCTO','CANTIDAD');
 let item = 0;
 let eliminados=0;
+let permisos = new Array();
+let listaSolicitudes;
+let inputBuscarProductoDependencia;
+let modalBuscarProductoC;
+let tbodyBuscarProductoC;
+let idproductoC;
+let sedeAlmacen;
+let modalDetalleSolicitudAlmacen;
+let bodyModalDetalleSolAlmacen;
+let modalAjustarCantidad;
+let bodyAjustarCantidad;
+let cantidadActual;
+let nuevaCantidad;
+let btnActualizarCantidad;
+let btnHacerSalida;
+let nombreQuienCreaSol;
+let fechaCreaSol;
+let horaCreaSol;
+let sedesCompras;
+let listaSolicitudesCompras;
+let modalSolicitudAtendida;
+let bodyAtenderSolicitud;
+let btnAtenderSolicitud;
+let listarProductosConfig;	
+let nombreQuienautoSol;
+let modalAutorizarSolicitud;
+let bodyAutorizarSolicitud;
+let modalAjustarcantidadAutorizar;
+let cantidadActualSolicitada;
+let nuevaCantidadSolicitada;
+let iddetalleajustar;
+let btnAjustarCantAutorizar;
+let btnAtutorizarSolicitud;
+let numeroSolicitudB;
+let desdeBuscar;
+let hastaBuscar;
 /*  */
 
 /*  */
 function validarSesion()
 {
 	$.post("./php/funciones_pedidos.php",{op: "validarSesion"}, (x)=>{
-		//console.log(x);
 		if(x == "no")
 		{
 			idusua.val("");
@@ -78,8 +123,6 @@ function validarSesion()
 				icon: "error",
 				confirmButtonText: "Aceptar"
 			});
-
-			// login en swalert2
 			Swal.fire({
 				title: 'Iniciar sesión',
 				icon: "warning",
@@ -100,11 +143,9 @@ function validarSesion()
 				  return { login: login, password: password }
 				}
 			  }).then((result) => {
-				  console.log(result);
 				if (result.isDismissed) {
-					console.log("Cancelado");
+					location.reload();
 				}else{
-				  console.log("enviar validacion php");
 				  	$.ajax({
 					url: "./php/funciones_pedidos.php",
 					type: "POST",
@@ -115,18 +156,26 @@ function validarSesion()
 					},
 					success: function(data)
 					{
-						console.log(data);
-						data = JSON.parse(data); 
+						data = JSON.parse(data);
+						if(data.respuesta == "error")
+						{
+							Swal.fire({
+								title: "Error",
+								text: "Usuario o contraseña incorrectos",
+								icon: "error",
+								confirmButtonText: "Aceptar"
+							}).then(()=>{
+								location.reload();
+							});
+
+						}
 						if(data.respuesta == "caducado")
 						{
-							console.log("caducado");
-
 							window.open("../../cambio.php","popup", "Cambio de clave");
-
 						}else if(!data.respuesta.isNaN)
 						{
 							idusua.val(data.respuesta);
-							console.log("inicio sesion");
+							location.reload();
 						}
 						else
 						{
@@ -135,6 +184,8 @@ function validarSesion()
 								text: "Usuario o contraseña incorrectos",
 								icon: "error",
 								confirmButtonText: "Aceptar"
+							}).then(()=>{
+								location.reload();
 							});
 						} 
 					}
@@ -194,9 +245,9 @@ function salvarEditarProducto()
 				});
 				modalEditarProducto.modal("hide");
 				listarProductos();
-			}else{
+			}else if (x == "existe"){
 				Swal.fire({
-					title: "Error",
+					title: "La referencia del producto ya existe",
 					text: "No se pudo editar el producto",
 					icon: "error",
 					confirmButtonText: "Aceptar"
@@ -226,9 +277,30 @@ function addItemCarritoN(id)
 		if(x != "error")
 		{
 			x = JSON.parse(x);
-			console.log(x);
 			buscarProductoN.val(x.producto);
 			idproductoTempN.val(x.idproducto);
+			
+		}else{
+			Swal.fire({
+				title: "Error",
+				text: "No se pudo obtener los datos del producto",
+				icon: "error",
+				confirmButtonText: "Aceptar"
+			});
+		}
+
+	});
+
+}
+function addItemCarritoC(id)
+{
+	modalBuscarProductoC.modal("hide");
+	$.post("./php/funciones_pedidos.php",{op: "datosProducto", idProducto: id}, (x)=>{
+		if(x != "error")
+		{
+			x = JSON.parse(x);
+			inputBuscarProductoDependencia.val(x.producto);
+			idproductoC.val(x.idproducto);
 			
 		}else{
 			Swal.fire({
@@ -260,7 +332,6 @@ function agregarProducto()
 			estado = "Inactivo";
 		}
 		$.post("./php/funciones_pedidos.php",{op: "agregarProducto", referencia: addReferencia.val(), descripcion: addDescripcion.val(), estado: estado}, (x)=>{
-			// console.log(x);
 			if(x == "ok")
 			{
 				Swal.fire({
@@ -275,8 +346,8 @@ function agregarProducto()
 				listarProductos();
 			}else{
 				Swal.fire({
-					title: "Error",
-					text: "Producto no agregado",
+					title: "La referencia del producto ya existe",
+					text: "Producto no agregado, intente con otra referencia",
 					icon: "error",
 					confirmButtonText: "Aceptar"
 				});
@@ -287,33 +358,55 @@ function agregarProducto()
 }
 function agregar_item()
 {
-	$.post("./php/funciones_pedidos.php",{op:"validarPendiente",idsede: sedesN.val(),idarea: areasN.val(),iddependencia: dependenciasN.val(), idproducto: idproductoTempN.val()},(x)=>{ 
-		var temp=x.split("-*-");
-		if(temp[0]==0)
-		{
-			item++;
+	// $.post("./php/funciones_pedidos.php",{op:"validarPendiente",idsede: sedesN.val(),idarea: areasN.val(),iddependencia: dependenciasN.val(), idproducto: idproductoTempN.val()},(x)=>{ 
+	// 	var temp=x.split("-*-");
+	// 	if(temp[0]==0)
+	// 	{
+			
+	// 	}
+	// 	else
+	// 	{
+	// 		alert("Del producto: " + $("#producto").val()+", tiene pendiente:\n\n"+temp[1]);
+	// 	}
+		item++;
 			pedido[item]= new Array (idproductoTempN.val(), buscarProductoN.val(), cantidadProductoN.val(),item,'ver');
 			buscarProductoN.val("");
 			idproductoTempN.val(0);
 			cantidadProductoN.val(0);
 			buscarProductoN.focus();
 			refrescarpedido();
-		}
-		else
-		{
-			alert("Del producto: " + $("#producto").val()+", tiene pendiente:\n\n"+temp[1]);
-		}
 		if(item>0)
 		{
 			$("#carritoSolicitud").show();
 		}
+	// });
+}
+function ajustarCantidadAutorizar(detalle, cantidad) {
+	modalAutorizarSolicitud.modal("hide");
+	cantidadActualSolicitada.text(cantidad);
+	nuevaCantidadSolicitada.val(cantidad);
+	iddetalleajustar.val(detalle);
+	modalAjustarcantidadAutorizar.modal("show");	
+}
+function autorizar(idsol)
+{
+
+	modalAutorizarSolicitud.modal("show");
+	$.post("./php/funciones_pedidos.php",{op: "detallesAutorizar", idsolicitud: idsol}, (x)=>{
+		bodyAutorizarSolicitud.html(x);
 	});
 }
-function ingresosoli()
+function ingresosoli(obs)
 {
-	$.post("./php/funciones_pedidos.php",{"op":"ingresosoli","idsede":sedesN.val(),"iddependencia":dependenciasN.val(),"idarea":areasN.val(),"obs":"obs"},(x)=>{
-		console.log(x);
-	});
+	$.post("./php/funciones_pedidos.php",{"op":"ingresosoli","idsede":sedesN.val(), sede: $('#sedesN  option:selected').text(),"iddependencia":dependenciasN.val(),dependencia: $('#dependenciasN  option:selected').text(),"idarea":areasN.val(), area: $('#areasN  option:selected').text(),"obs":obs},(x)=>{
+		Swal.fire({
+			title: "Solicitud ingresada",
+			text: "el numero de la solicitud es: "+x.idsolicitud,
+			icon: "success",
+			confirmButtonText: "Aceptar"
+		});
+	}, 'json');
+	listarSolicitudes();
 }
 function confirmar()
 {
@@ -329,85 +422,71 @@ function confirmar()
 			confirmButtonText: 'Guardar'
 		  }).then((result) => {
 			if (result.isConfirmed) {
+				modalNuevaSolicitud.modal("hide");
 				Swal.fire({
 					title: 'Desea agregar una observacion?',
-					input: 'text',
+					html: '<input id="obs" class="form-control" type="text" placeholder="Observacion">',
 					inputAttributes: {
 					  autocapitalize: 'off'
 					},
-					showCancelButton: true,
-					cancelButtonText: 'No',
+					preConfirm: () => {
+					const obs = Swal.getPopup().querySelector('#obs').value;
+					return {obs: obs};
+					},
+					showCancelButton: false,
 					confirmButtonText: 'Guardar observacion',
-					allowOutsideClick: false,
 					showLoaderOnConfirm: false,
 				  }).then((result) => {
 					if (result.isConfirmed) {
-						console.log("isConfirmed");
 						for(x=1;x<=item;x++)
 						{
-							console.log("entro al for");
 							if(pedido[x][4]=="ver")
 							{
-								console.log("entro al if");
 								idpro=pedido[x][0];
 								cantidad=pedido[x][2];
-								//alert("vamos a inGresar el detalle No.="+x);
-								console.log(item);
-								console.log(x);
 								if(item==x){ok="si";}else{ok="no";}
-								console.log("ok: "+ok);
-
 								$.post("./php/funciones_pedidos.php",{"op":"ingresoDetalle","idprod":idpro,"cantidad":cantidad,"fin":ok,"idsede":sedesN.val(),"idarea":areasN.val()},(x)=>{
-									console.log("entro al get");
-									console.log("x: "+x);
-									if(x.fin = "si"){
-										console.log("se envio a ingreso soli");
-										ingresosoli();}
 								});
-								console.log("salio del get");
+								if(ok == "si"){
+									ingresosoli(`${result.value.obs}`);}
+
 							}
-							console.log("salio del if");
 						}
-						console.log("salio del for");
 						item=0;
 						eliminados=0;
 						refrescarpedido();
-					}else{
-						Swal.fire({
-							title: "Guardando sin observacion",
-						  })
 					}
-				  })
+				})
 			}
-		  })
-		/* if(confirm("Desea guardar este pedido???"))
-		{
-			obs=prompt("Desea digitar una Observacion...");
-			$("#espere").fadeTo("show",0.5);
-			$("#procesando").fadeIn();
-			for(x=1;x<=item;x++)
-			{
-				if(pedido[x][4]=="ver")
-				{
-					idpro=pedido[x][0];
-					cantidad=pedido[x][2];
-					//alert("vamos a inGresar el detalle No.="+x);
-					if(item==x){ok="si";}else{ok="no";}
-					$.getJSON("funciones_pedidos.php",{"op":"ingresodetalles","idprod":idpro,"cantidad":cantidad,"fin":ok,"idsede":$("#sedes").val(),"idarea":$("#areas").val()},respuesta_ingresodetalles);
-				}
-			}
-			item=0;
-			eliminados=0;
-			$("#sedes").attr("disabled",false);
-			$("#departamentos").attr("disabled",false);
-			$("#areas").attr("disabled",false);
-		} */
+		})
 	}
 	else
 	{
-		alert("Debe ingresar al menos un producto...");
+		Swal.fire({
+			title: 'Debe ingresar al menos un producto...',
+			icon: 'warning',
+			showCancelButton: false,
+			confirmButtonColor: '#3085d6',
+			cancelButtonColor: '#d33',
+			confirmButtonText: 'Aceptar'
+		});
 		$("#producto").focus();
 	}
+}
+function detallesSolicitudAlmacen(idsol)
+{
+	$.post("./php/funciones_pedidos.php",{op: "detallesSolicitudAlmacen", idsolicitud: idsol}, (x)=>{
+		bodyModalDetalleSolAlmacen.html(x);
+		modalDetalleSolicitudAlmacen.modal("show");
+	});
+}
+function ajustarCantidad(iddetalle, cantidad)
+{
+	
+	cantidadActual.html(cantidad);
+	$("#idProdNewCant").val(iddetalle);
+	modalDetalleSolicitudAlmacen.modal("hide");
+	modalAjustarCantidad.modal("show");
 }
 function eliminaritem(eli)
 {
@@ -426,11 +505,182 @@ function eliminaritem(eli)
 		}
 	  })
 }
+function listarSolicitudes()
+{
+	$.post("./php/funciones_pedidos.php",{"op":"listarsolicitudes"},(x)=>{
+		listaSolicitudes.html(x);
+	});
+}
+function clickSolicitud(idsolicitud)
+{
+	$(".tr-item").removeClass("active");
+	$("#tr-item-"+idsolicitud).addClass("active");
+	$.post("./php/funciones_pedidos.php",{op: "detallesSolicitud", idsolicitud: idsolicitud}, (x)=>{
+		x = JSON.parse(x);
+		nombreQuienCreaSol.text(x.crea);
+		nombreQuienautoSol.text(x.auto);
+	});
+}
+function buscarSolicitud()
+{
+
+}
+function anular(idsol) {
+	Swal.fire({
+		title: 'Desea anular esta solicitud?',
+		text: "Esta accion no se puede deshacer",
+		icon: 'warning',
+		showCancelButton: true,
+		confirmButtonColor: '#3085d6',
+		cancelButtonColor: '#d33',
+		confirmButtonText: 'Si, anular!'
+	}).then((result) => {	
+		if (result.isConfirmed) {
+			$.post("./php/funciones_pedidos.php",{op: "anularSolicitud", idsolicitud: idsol}, (x)=>{
+				if(x=="ok")
+				{
+				listarSolicitudes();
+				Swal.fire('Anulado con exito!', '', 'success')
+				}
+			});
+		}
+	  });
+}
+function anularProductoConfig(x)
+{
+	$.post("./php/funciones_pedidos.php",{op: "anularProductoConfig", iddepprod: x}, (x)=>{
+		if(x != "error")
+		{
+			Swal.fire({
+				title: 'Permisos quitados con exito',
+				icon: 'success',
+				confirmButtonText: 'Aceptar'
+			  }).then((result) => {
+				if (result.isConfirmed) {
+					listarProductosConfiguracion(x);
+				}
+			  })
+		}
+	});
+}
+function GuardarCantidadAutorizar()
+{
+	console.log("nueva cantidad: "+nuevaCantidadSolicitada.val()+" cantidad actual: "+Number(cantidadActualSolicitada.text()));
+	if(nuevaCantidadSolicitada.val() > Number(cantidadActualSolicitada.text()))
+	{
+		Swal.fire({
+			title: 'Solamente puede disminuir la cantidad',
+			text: 'La cantidad actual es de '+cantidadActualSolicitada.text(),
+			icon: 'warning',
+			confirmButtonText: 'Aceptar'
+		});
+	}else{
+		if(nuevaCantidadSolicitada.val() < 0)
+		{
+			Swal.fire({
+				title: 'La cantidad no puede ser 0',
+				text: 'La cantidad actual es de '+cantidadActualSolicitada.text(),
+				icon: 'warning',
+				confirmButtonText: 'Aceptar'
+			});
+		}else{
+			console.log("iddetalle "+$("#iddetalleajustar").val());
+			$.post("./php/funciones_pedidos.php",{op: "actualizarCantidadAutorizar", idproducto: $("#iddetalleajustar").val(), cantidad: nuevaCantidadSolicitada.val()}, (x)=>{
+				console.log("x: "+x);
+				if(x == "error")
+				{
+					Swal.fire({
+						type: 'error',
+						title: 'Oops...',
+						text: 'Algo salio mal!',
+						footer: 'Intente de nuevo'
+					});
+				}else{
+					
+					autorizar(x);
+					modalAjustarcantidadAutorizar.modal("hide");
+					modalAutorizarSolicitud.modal("show");
+					Swal.mixin({
+						toast:true,
+						showConfirmButton: false,
+						timer: 3000,
+						position: 'top-end',
+						timerProgressBar: true,
+					}).fire({
+						icon: 'success',
+						title: 'Se actualizo la cantidad'
+					});
+				}
+				nuevaCantidadSolicitada.val("");
+			});
+
+		}
+	}
+}
+function listarProductosConfiguracion(iddependencia)
+{
+	$.post("./php/funciones_pedidos.php",{"op":"listarProductosConfig", iddependencia: iddependencia},(x)=>{
+		listarProductosConfig.html(x);
+	});
+}
+function atenderSolicitud(idsol)
+{
+	if($("#numhelisa").val()=="")
+	{
+		Swal.fire({
+			title: "Debe ingresar el numero de helisa",
+			icon: 'warning',
+			showCancelButton: false,
+			confirmButtonColor: '#3085d6',
+			confirmButtonText: 'Aceptar'
+		}).then((result) => {
+			if (result.isConfirmed) {
+				$("#numhelisa").focus()
+			}else if(result.isDismissed){
+				$("#numhelisa").focus()
+			}
+		})
+	}else{
+		$.post("./php/funciones_pedidos.php",{op: "atenderSolicitud", idsolicitud: idsol, numhelisa: $("#numhelisa").val()}, (x)=>{
+			if(x=="error")
+			{
+				Swal.fire({
+					type: 'error',
+					title: 'Oops...',
+					text: 'No se pudo atender la solicitud'
+				})
+			}else{
+				Swal.fire({
+					type: 'success',
+					icon: 'success',
+					title: 'Solicitud atendida',
+					text: 'Se ha atendido la solicitud '+x+' con exito'
+				}).then((result) => {
+					if (result.isConfirmed) {
+						modalSolicitudAtendida.modal("hide");
+					}
+				});
+			}
+						listarSolicitudesCompras(sedesCompras.val());
+		});
+	}
+}
+function FinalizarCompra(id)
+{
+	$.post("./php/funciones_pedidos.php",{op: "finalizarCompra", idsolicitud: id}, (x)=>{
+		bodyAtenderSolicitud.html(x);
+		modalSolicitudAtendida.modal("show");
+	});
+}
+function listarSolicitudesCompras(sede)
+{
+	$.post("./php/funciones_pedidos.php",{op: "listarSolicitudesCompras", sede: sede}, (x)=>{
+		listaSolicitudesCompras.html(x);
+	});
+}
 function refrescarpedido()
 {
 	var ver='<table border="1">';
-	// console.log(item);
-	// console.log(pedido);
 	for(x=1;x<=item;x++)
 	{
 		if(pedido[x][4]=='ver')
@@ -442,6 +692,15 @@ function refrescarpedido()
 	ver=ver+'</table>';
 	$("#tbodySolicitudN").html(ver);
 }
+function isNumber(evt)
+{
+	evt = (evt) ? evt : window.event;
+	var charCode = (evt.which) ? evt.which : evt.keyCode;
+	if (charCode > 31 && (charCode < 48 || charCode > 57)) {
+	return false;
+}
+	return true;
+}
 function hideInicio()
 {
 	divSolicitudes.hide();
@@ -452,6 +711,10 @@ function hideInicio()
 	divAlmacen.hide();
 	divFirmaDigital.hide();
 	divSalidas.hide();
+	
+	areasC.attr("disabled",true);
+	dependenciasC.attr("disabled",true);
+	btnAgregarProductoDependencia.attr("disabled",true);
 }
 function inicio()
 {
@@ -459,6 +722,9 @@ function inicio()
 	sedesN = $("#sedesN");
 	areasN = $("#areasN");
 	dependenciasN = $("#dependenciasN");
+	sedesB = $("#sedesB");
+	areasB = $("#areasB");
+	dependenciasB = $("#dependenciasB");
 	sedesC = $("#sedesC");
 	areasC = $("#areasC");
 	dependenciasC = $("#dependenciasC");
@@ -481,6 +747,7 @@ function inicio()
 	btnListarAll = $("#btnListarAll");
 	btnBuscarDescripcionP = $("#btnBuscarDescripcionP");
 	btnBuscarReferenciaP = $("#btnBuscarReferenciaP");
+	btnAgregarProductoDependencia = $("#btnAgregarProductoDependencia");
 	item_solicitudes = $("#item_solicitudes");
 	item_configuracion = $("#item_configuracion");
 	item_compras_producto = $("#item_compras_producto");
@@ -509,26 +776,242 @@ function inicio()
 	idproductoTempN = $("#idproductoTempN");
 	cantidadProductoN = $("#cantidadProductoN");
 	btnConfirmarSolicitudN = $("#btnConfirmarSolicitudN");
-	
+	listaSolicitudes = $("#listaSolicitudes");
+	modalBuscarSolicitudN = $("#modalBuscarSolicitudN");
+	btnModalBuscarSolicitudN = $("#btnModalBuscarSolicitudN");
+	btnBuscarSolicitud = $("#btnBuscarSolicitud");
+	btnBuscarProductoDependencia = $("#btnBuscarProductoDependencia");
+	modalBuscarProductoC = $("#modalBuscarProductoC");
+	inputBuscarProductoDependencia = $("#inputBuscarProductoDependencia");
+	breferenciaDependencia = $("#breferenciaDependencia");
+	bdescripcionDependencia = $("#bdescripcionDependencia");
+	tbodyBuscarProductoC = $("#tbodyBuscarProductoC");
+	idproductoC = $("#idproductoC");
+	sedeAlmacen = $("#sedeAlmacen");
+	modalDetalleSolicitudAlmacen = $("#modalDetalleSolicitudAlmacen");
+	bodyModalDetalleSolAlmacen = $("#bodyModalDetalleSolAlmacen");
+	modalAjustarCantidad = $("#modalAjustarCantidad");
+	bodyAjustarCantidad = $("#bodyAjustarCantidad");
+	cantidadActual = $("#cantidadActual");
+	nuevaCantidad = $("#nuevaCantidad");
+	btnActualizarCantidad = $("#btnActualizarCantidad");
+	btnHacerSalida = $("#btnHacerSalida");
+	nombreQuienCreaSol = $("#nombreQuienCreaSol");
+	fechaCreaSol = $("#fechaCreaSol");
+	horaCreaSol = $("#horaCreaSol");
+	sedesCompras = $("#sedesCompras");
+	listaSolicitudesCompras = $("#listaSolicitudesCompras");
+	modalSolicitudAtendida = $("#modalSolicitudAtendida");
+	bodyAtenderSolicitud = $("#bodyAtenderSolicitud");
+	btnAtenderSolicitud = $("#btnAtenderSolicitud");
+	listarProductosConfig = $("#listarProductosConfig");
+	nombreQuienautoSol = $("#nombreQuienautoSol");
+	modalAutorizarSolicitud = $("#modalAutorizarSolicitud");
+	bodyAutorizarSolicitud = $("#bodyAutorizarSolicitud");
+	modalAjustarcantidadAutorizar = $("#modalAjustarcantidadAutorizar");
+	cantidadActualSolicitada = $("#cantidadActualSolicitada");
+	nuevaCantidadSolicitada = $("#nuevaCantidadSolicitada");
+	iddetalleajustar = $("#iddetalleajustar");
+	btnAjustarCantAutorizar = $("#btnAjustarCantAutorizar");
+	btnAtutorizarSolicitud = $("#btnAtutorizarSolicitud");
+	numeroSolicitudB = $("#numeroSolicitudB");
+	desdeBuscar = $("#desdeBuscar");
+	hastaBuscar = $("#hastaBuscar");
+
 	$("#carritoSolicitud").hide();
 	validarSesion();
 	hideInicio();
 	divSolicitudes.show();
+	listarSolicitudes();
 	listarProductos();
 	$.post("./php/funciones_pedidos.php",{op: "inicio"}, (x)=>{
-		// console.log(x);
-		let datosSedes = x.split("|");
-		sedesN.html(datosSedes[0]);
-		sedesC.html(datosSedes[0]);
-		areasN.html(datosSedes[1]);
-		areasC.html(datosSedes[1]);
-		dependenciasN.html(datosSedes[2]);
-		dependenciasC.html(datosSedes[2]);
-		// console.log(datosSedes);
+		sedesN.html(x);
+		sedesC.html(x);
+		sedesB.html(x);
+		areasN.attr("disabled",true);
+		dependenciasN.attr("disabled",true);
+		bdescripcionDependencia.attr("disabled",true);
+		breferenciaDependencia.attr("disabled",true);
+		inputBuscarProductoDependencia.attr("disabled",true);
+		btnBuscarProductoDependencia.attr("disabled",true);
+		buscarProductoN.attr("disabled",true);
+		btnBuscarProductoN.attr("disabled",true);
+		bdescripcion.attr("disabled",true);
+		breferencia.attr("disabled",true);
+		cantidadProductoN.attr("disabled",true);
+	});
+	$.post("./php/funciones_pedidos.php",{op: "almacen"}, (x)=>{
+		sedeAlmacen.html(x);
+		sedesCompras.html(x);
+	});
+	listarSolicitudesCompras(0);
+	
+	sedesCompras.change(()=>{
+		listarSolicitudesCompras(sedesCompras.val());
+	});
+	sedeAlmacen.change(()=>{
+		$.post("./php/funciones_pedidos.php",{op: "solicitudesAlmacen", sede: sedeAlmacen.val()}, (x)=>{
+			$("#listaAlmacen").html(x);
+		});
+	});
+	sedesN.change(()=>{
+		$.post("./php/funciones_pedidos.php",{op: "areas", idsede: sedesN.val()}, (x)=>{
+			areasN.html(x);
+			areasN.attr("disabled",false);
+		});
+	});
+	areasN.change(()=>{
+		$.post("./php/funciones_pedidos.php",{op: "dependencias", idsede: sedesN.val(), idarea: areasN.val()}, (x)=>{
+			dependenciasN.html(x);
+			dependenciasN.attr("disabled",false);
+		});
+	});
+	dependenciasN.change(()=>{
+		buscarProductoN.attr("disabled",false);
+		btnBuscarProductoN.attr("disabled",false);
+		bdescripcion.attr("disabled",false);
+		breferencia.attr("disabled",false);
+		cantidadProductoN.attr("disabled",false);
+
+	});
+
+	sedesC.change(()=>{
+		$.post("./php/funciones_pedidos.php",{op: "areas", idsede: sedesC.val()}, (x)=>{
+			areasC.html(x);
+			areasC.attr("disabled",false);
+		});
+	});
+	areasC.change(()=>{
+		$.post("./php/funciones_pedidos.php",{op: "dependencias", idsede: sedesC.val(), idarea: areasC.val()}, (x)=>{
+			dependenciasC.html(x);
+			dependenciasC.attr("disabled",false);
+		});
+	});
+	btnAtenderSolicitud.click(()=>{
+		atenderSolicitud($("#idSolicitudAtender").val());
+	});
+	
+	dependenciasC.change(()=>{
+		if(dependenciasC.val()!="0")
+		{
+		bdescripcionDependencia.attr("disabled",false);
+		breferenciaDependencia.attr("disabled",false);
+		inputBuscarProductoDependencia.attr("disabled",false);
+		btnBuscarProductoDependencia.attr("disabled",false);
+		btnAgregarProductoDependencia.attr("disabled",false);
+		listarProductosConfiguracion(dependenciasC.val());
+		}
+	});
+	$(".btnCerrarMCntidad").click(()=>{
+		modalAjustarCantidad.modal("hide");
+		modalDetalleSolicitudAlmacen.modal("show");
+	});
+	btnActualizarCantidad.click(()=>{
+		if(nuevaCantidad.val() > 0 )
+		{
+			if(nuevaCantidad.val() > Number(cantidadActual.text()))
+			{
+				Swal.fire({
+					title: 'Solamente puede disminuir la cantidad',
+					text: 'La cantidad actual es de '+cantidadActual.text(),
+					icon: 'warning',
+					confirmButtonText: 'Aceptar'
+				});
+			}else{
+				$.post("./php/funciones_pedidos.php",{op: "actualizarCantidadEntregada", idproducto: $("#idProdNewCant").val(), cantidad: nuevaCantidad.val()}, (x)=>{
+					if(Number.isInteger(Number(x)))
+					{
+						modalAjustarCantidad.modal("hide");
+						detallesSolicitudAlmacen(x);
+						modalDetalleSolicitudAlmacen.modal("show");
+						Swal.mixin({
+							toast:true,
+							showConfirmButton: false,
+							timer: 3000,
+							position: 'top-end',
+							timerProgressBar: true,
+						}).fire({
+							icon: 'success',
+							title: 'Se actualizo la cantidad'
+						});
+
+					}else{
+						Swal.fire({
+							type: 'error',
+							title: 'Oops...',
+							text: 'Algo salio mal!',
+							footer: 'Intente de nuevo'
+						});
+					}
+					nuevaCantidad.val("");
+				});
+			}
+		}
+		
+	});
+
+	btnAgregarProductoDependencia.click(()=>{
+		if(idproductoC != "")
+		{
+			$.post("./php/funciones_pedidos.php",{op: "agregarProductoDependencia", iddependencia: dependenciasC.val(), idproducto: idproductoC.val()}, (x)=>{
+				listarProductosConfiguracion(dependenciasC.val());
+			});	
+		}
+	});
+	btnBuscarProductoDependencia.click(()=>{
+
+		let tipoBusqueda;
+		if(breferenciaDependencia.prop('checked')){
+			tipoBusqueda = "referencia";
+		}else if(bdescripcionDependencia.prop('checked')){
+			tipoBusqueda = "producto";
+		}
+		
+		$.post("./php/funciones_pedidos.php",{op: "buscarProductoConfiguracion", tipo: tipoBusqueda, item: buscarProductoN.val()}, (x)=>{
+			modalBuscarProductoC.modal("show");
+			tbodyBuscarProductoC.html(x);
+		});
+
+	});
+	btnHacerSalida.click(()=>{
+
+		$.post("./php/funciones_pedidos.php",{op: "hacerSalida", idsolicitud: $('#inpidsolicitudSalida').val()}, (x)=>{
+			if(x=="error")
+			{
+				Swal.fire({
+					type: 'error',
+					title: 'Oops...',
+					text: 'Algo salio mal!',
+					footer: 'Intente de nuevo'
+				});
+			}else{
+				Swal.fire({
+					title: 'Salida realizada',
+					text: 'Se ha realizado la salida para la solicitud '+x,
+					icon: 'success',
+					confirmButtonText: 'Aceptar'
+				}).then((result) => {
+					if (result.value) {
+						sedeAlmacen.val("0");
+						$("#listaAlmacen").html("");
+					}
+				});
+			}
+			modalDetalleSolicitudAlmacen.modal("hide");
+		})
 	});
 	btnModalNuevaSolicitud.click(()=>{
 		modalNuevaSolicitud.modal("show");
 	});
+	btnModalBuscarSolicitudN.click(()=>{
+		modalBuscarSolicitudN.modal("show");
+	});
+	btnBuscarSolicitud.click(()=>{
+		buscarSolicitud();
+	});
+	btnAjustarCantAutorizar.click(()=>{
+		GuardarCantidadAutorizar();
+		});
 	btnBuscarProductoN.click(()=>{
 		let tipoBusqueda;
 		if(breferencia.prop('checked')){
@@ -536,7 +1019,7 @@ function inicio()
 		}else if(bdescripcion.prop('checked')){
 			tipoBusqueda = "producto";
 		}
-		$.post("./php/funciones_pedidos.php",{op: "buscarProductoNuevaSol", tipo: tipoBusqueda, item: buscarProductoN.val()}, (x)=>{
+		$.post("./php/funciones_pedidos.php",{op: "buscarProductoNuevaSol", tipo: tipoBusqueda, item: buscarProductoN.val(),dependencia : dependenciasN.val()}, (x)=>{
 			modalNuevaSolicitud.modal("hide");
 			modalBuscarProductoN.modal("show");
 			tbodyBuscarProductoN.html(x);
@@ -544,9 +1027,7 @@ function inicio()
 	});
 	btnAddItemCarrito.click(()=>{
 		if(idproductoTempN.val() != "" && idproductoTempN.val() > 0){
-			console.log("hay id");
 			if(cantidadProductoN.val() > 0){
-				console.log("hay cantidad");
 				agregar_item();
 			}else{
 			Swal.fire({
@@ -557,7 +1038,6 @@ function inicio()
 			});
 			}
 		}else{
-			console.log("no hay id");
 			Swal.fire({
 				icon: 'error',
 				type: 'error',
@@ -579,33 +1059,71 @@ function inicio()
 			padre = $(this).attr("padre");
 			$("#"+padre).show();
 		}else{
-			console.log("no tiene atributo padre.");
 		}
 	});
 	btnConfirmarSolicitudN.click(confirmar);
 
 	btnModalAgregarProducto.click(()=>{
-		// console.log("click");
 		modalAgregarProducto.modal("show");
 	});
 	btnListarAll.click(listarProductos);
 	btnAgregarProducto.click(agregarProducto);
+
 	$(".nav-item").click(function(){
 		$(".nav-item").removeClass("active");
+		$(this).addClass("active");
+	});
+
+	$(".tr-item").click(function(){
+		alert("click");
+		$(this).addClass("active");
+		$(".tr-item").removeClass("active");
 		$(this).addClass("active");
 	});
 	
 	btnEditarProducto.click(salvarEditarProducto);
 	btnBuscarDescripcionP.click(()=>{
 		$.post("./php/funciones_pedidos.php",{op: "buscarProducto", item: inputBuscarProducto.val(), tipo: "producto"}, (x)=>{
-			// console.log(x);
 			listaProductos.html(x);
 		});
 	});
 	btnBuscarReferenciaP.click(()=>{
 		$.post("./php/funciones_pedidos.php",{op: "buscarProducto", item: inputBuscarProducto.val(), tipo: "Referencia"}, (x)=>{
-			// console.log(x);
 			listaProductos.html(x);
 		});
 	});
+	btnAtutorizarSolicitud.click(()=>{
+		Swal.fire({
+			title: "¿Esta seguro de autorizar esta solicitud?",
+			text: "",
+			icon: "warning",
+			showCancelButton: true,
+			confirmButtonColor: '#3085d6',
+			cancelButtonColor: '#d33',
+			confirmButtonText: 'Si, autorizar'
+		}).then((result) => {
+			if (result.value) {
+				$.post("./php/funciones_pedidos.php",{op: "autorizar", idsolicitud: $("#idsolicitudAutorizar").val()}, (x)=>{
+					if(x == "ok")
+					{
+						Swal.fire({
+							title: "Exito",
+							text: "Solicitud autorizada",
+							icon: "success",
+							confirmButtonText: "Aceptar"
+						});
+						listarSolicitudes();
+					}else{
+						Swal.fire({
+							title: "Error",
+							text: "No se pudo autorizar la solicitud",
+							icon: "error",
+							confirmButtonText: "Aceptar"
+						});
+					}
+				});
+			}
+		});
+	});
 }
+
